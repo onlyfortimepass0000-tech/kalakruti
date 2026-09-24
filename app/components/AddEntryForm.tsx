@@ -1,11 +1,13 @@
 "use client";
 
-import { useActionState, useEffect, useRef } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { addEntry } from "../actions";
 
 export function AddEntryForm({ today }: { today: string }) {
   const [state, action, pending] = useActionState(addEntry, undefined);
   const form = useRef<HTMLFormElement>(null);
+  // Phones show a single button until tapped; desktop always shows the form.
+  const [open, setOpen] = useState(false);
 
   useEffect(() => {
     if (state?.ok) {
@@ -15,7 +17,11 @@ export function AddEntryForm({ today }: { today: string }) {
   }, [state]);
 
   return (
-    <form ref={form} action={action} className="panel">
+    <>
+      <button type="button" className="btn btn-primary add-toggle" aria-expanded={open} onClick={() => setOpen(!open)}>
+        {open ? "Close" : "+ Add outstanding payment"}
+      </button>
+    <form ref={form} action={action} className={`panel add-body${open ? " open" : ""}`}>
       <div className="form-grid">
         <div className="field">
           <label htmlFor="f-name">Customer / business</label>
@@ -40,5 +46,6 @@ export function AddEntryForm({ today }: { today: string }) {
       {state?.error && <p className="form-msg err">{state.error}</p>}
       {state?.ok && <p className="form-msg ok">{state.ok} Reminders are scheduled automatically.</p>}
     </form>
+    </>
   );
 }

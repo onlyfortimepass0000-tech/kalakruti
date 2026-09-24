@@ -18,7 +18,7 @@ export default async function SettingsPage() {
   return (
     <main className="wrap">
       <Header mode={email.mode} />
-      <div className="section-head">
+      <div className="section-head head-wrap">
         <h2 className="section-title">Settings</h2>
         <span className={`pill dot ${email.mode === "live" ? "live" : "mock"}`}>
           {email.mode === "live" ? "Live — emails are being sent" : "Mock — nothing is emailed yet"}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useTransition } from "react";
+import { useActionState, useRef, useTransition } from "react";
 import { deleteEntry, editEntry, markPaid, resumeAfterFailure, togglePause, undoPaid } from "../actions";
 import { useToast } from "./Toast";
 import type { EntryView } from "./view";
@@ -76,7 +76,7 @@ export function EntryCard({ e }: { e: EntryView }) {
             onClick={() => start(() => togglePause(e.id))}
             title="Pause stops automatic reminders for this customer without marking paid"
           >
-            <span className="switch-track" /> {e.status === "paused" ? "Paused" : "Pause"}
+            <span className="switch-track" /> <span className="switch-label">{e.status === "paused" ? "Paused" : "Pause"}</span>
           </button>
         )}
         {e.status === "needs_attention" && e.attention_reason === "send_failed" && (
@@ -98,12 +98,19 @@ export function EntryCard({ e }: { e: EntryView }) {
 function MoreMenu({ e }: { e: EntryView }) {
   const [state, action, pending] = useActionState(editEntry, undefined);
   const [deleting, start] = useTransition();
+  const details = useRef<HTMLDetailsElement>(null);
   return (
-    <details className="more">
+    <details className="more" ref={details}>
       <summary className="btn btn-ghost" aria-label="More options">
         Edit
       </summary>
       <div className="more-panel">
+        <div className="sheet-head">
+          <b>Edit {e.customer_name}</b>
+          <button type="button" className="btn btn-ghost" onClick={() => details.current?.removeAttribute("open")}>
+            ✕ Close
+          </button>
+        </div>
         <form action={action} className="form-grid stack">
           <input type="hidden" name="id" value={e.id} />
           <div className="field">
