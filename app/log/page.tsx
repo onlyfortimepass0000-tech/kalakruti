@@ -19,11 +19,12 @@ export default async function LogPage() {
   const names = new Map(entries.map((e) => [e.id, e.customer_name]));
   const failures = sends.filter((s) => s.status === "failed" || s.status === "bounced").length;
   const fmt = new Intl.DateTimeFormat("en-IN", { timeZone: config.timezone, dateStyle: "medium", timeStyle: "short" });
+  const short = new Intl.DateTimeFormat("en-IN", { timeZone: config.timezone, day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
 
   return (
     <main className="wrap">
       <Header mode={email.mode} />
-      <div className="section-head">
+      <div className="section-head head-wrap">
         <h2 className="section-title">
           Send log <span className="count">{sends.length} most recent</span>
         </h2>
@@ -35,6 +36,25 @@ export default async function LogPage() {
       {sends.length === 0 ? (
         <div className="empty">No reminders sent yet.</div>
       ) : (
+        <>
+        {/* Phones: one card per send */}
+        <div className="log-cards">
+          {sends.map((s) => (
+            <div key={s.id} className={`log-card is-${s.status}`}>
+              <div className="log-card-top">
+                <b>{names.get(s.entry_id) ?? "(deleted)"}</b>
+                <span className={`status-${s.status}`}>{STATUS_TEXT[s.status]}</span>
+              </div>
+              <div className="log-card-meta">
+                Reminder #{s.stage} · {STAGE_LABELS[s.stage]}
+              </div>
+              <div className="log-card-meta">
+                {short.format(new Date(s.created_at))} · to <span className="break">{s.recipient}</span>
+              </div>
+              {s.error && <div className="log-card-error">{s.error}</div>}
+            </div>
+          ))}
+        </div>
         <div className="table-wrap">
           <table>
             <thead>
@@ -69,6 +89,7 @@ export default async function LogPage() {
             </tbody>
           </table>
         </div>
+        </>
       )}
     </main>
   );

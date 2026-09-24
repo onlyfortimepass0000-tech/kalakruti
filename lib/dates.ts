@@ -43,6 +43,8 @@ export function formatMoney(amount: number, currency: string): string {
     return new Intl.NumberFormat("en-IN", {
       style: "currency",
       currency,
+      // ₹25,000 rather than ₹25,000.00; keep paise when there are any.
+      minimumFractionDigits: Number.isInteger(amount) ? 0 : 2,
       maximumFractionDigits: 2,
     }).format(amount);
   } catch {

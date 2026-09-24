@@ -3,6 +3,7 @@ import { logout } from "../actions";
 import { authMode } from "@/lib/auth";
 import type { EmailSettings } from "@/lib/settings";
 import { usingSupabase } from "@/lib/store";
+import { Nav } from "./Nav";
 
 export function Header({ mode }: { mode: EmailSettings["mode"] }) {
   const live = mode === "live";
@@ -10,7 +11,9 @@ export function Header({ mode }: { mode: EmailSettings["mode"] }) {
   return (
     <header className="top">
       <Link href="/" className="brand">
-        <span className="brand-mark">₹</span> Payment Reminders
+        <span className="brand-mark">₹</span>
+        <span className="brand-full">Payment Reminders</span>
+        <span className="brand-short">Reminders</span>
       </Link>
       <div className="top-right">
         <Link
@@ -21,12 +24,10 @@ export function Header({ mode }: { mode: EmailSettings["mode"] }) {
         >
           {live ? "Live email" : "Mock mode"}
         </Link>
-        <Link href="/" className="nav-link">Dashboard</Link>
-        <Link href="/log" className="nav-link">Send log</Link>
-        <Link href="/settings" className="nav-link">Settings</Link>
+        <Nav />
         {canLogout && (
           <form action={logout}>
-            <button className="btn btn-ghost">Sign out</button>
+            <button className="btn btn-ghost signout">Sign out</button>
           </form>
         )}
       </div>

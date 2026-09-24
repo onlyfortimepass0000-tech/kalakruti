@@ -82,16 +82,16 @@ export default async function Dashboard() {
         )}
 
         <section className="section">
-          <div className="section-head">
+          <div className="section-head hide-mobile">
             <h2 className="section-title">Add outstanding payment</h2>
           </div>
           <AddEntryForm today={today} />
         </section>
 
         <section id="active" className="section">
-          <div className="section-head">
+          <div className="section-head head-wrap">
             <h2 className="section-title">Reminders running <span className="count">{active.length}</span></h2>
-            <span className="count">
+            <span className="count rule">
               #1 {config.leadDays} days before · #2 on due date · #3, #4 the next two days
             </span>
           </div>
@@ -125,7 +125,7 @@ export default async function Dashboard() {
           <details className="fold">
             <summary className="section-head">
               <h2 className="section-title">
-                <span className="chev">›</span> Paid <span className="count">{paid.length}</span>
+                <svg className="chev" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true"><path d="m9 6 6 6-6 6" /></svg> Paid <span className="count">{paid.length}</span>
               </h2>
             </summary>
             {paid.length ? (
