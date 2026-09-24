@@ -33,15 +33,16 @@ npm test           # schedule + runner tests
 
 With no env vars set, data goes to `.data/db.json` and emails are only logged (mock mode). In mock mode you can use the **Pretend today is** date field next to *Run daily check now* to step through the whole sequence.
 
-## Deploy (Vercel + Supabase + Resend)
+## Production setup (how it is deployed)
 
-1. **Supabase:** create a project and run `supabase/migrations/20260923000000_init.sql` in the SQL editor. Copy the project URL and the **service role** key.
-2. **Resend:** verify your sending domain and create an API key. Optional: add a webhook to `https://<your-app>/api/webhooks/resend` for `email.bounced` and `email.complained`, then copy its signing secret.
-3. **Vercel:** import the repo and set these env vars (see `.env.example`):
-   `ADMIN_PASSWORD`, `SESSION_SECRET`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `RESEND_API_KEY`, `EMAIL_FROM`, `CRON_SECRET`, `BUSINESS_NAME`, and optionally `RESEND_WEBHOOK_SECRET`, `EMAIL_REPLY_TO`, `REMINDER_LEAD_DAYS`, `APP_TIMEZONE`, `CURRENCY`.
-4. `vercel.json` runs `/api/cron/daily` every day at 03:30 UTC (09:00 IST). Any other scheduler works too: call `GET /api/cron/daily` with `Authorization: Bearer $CRON_SECRET`.
+- **Hosting:** Vercel (`kalakruti-seven.vercel.app`), auto-deployed from `main`. No Vercel env vars are needed.
+- **Database:** tables `pr_entries` and `pr_reminder_log` in a shared Supabase project (see `supabase/migrations/`). The app uses the project's *publishable* key (in `lib/config.ts`). Every query must also carry a login or scheduler token in an `x-app-token` header, and row-level security checks it. Without a valid token a request sees nothing.
+- **Login:** the owner password is stored as a bcrypt hash in `pr_private.settings`. To change it, run in the Supabase SQL editor:
+  `update pr_private.settings set value = extensions.crypt('NEW-PASSWORD', extensions.gen_salt('bf')) where key = 'admin_password_hash';`
+- **Scheduler:** Supabase `pg_cron` calls `/api/cron/daily` at 09:00 and 15:00 IST with the scheduler token. The 15:00 run is a safety net: nobody gets more than one reminder a day.
+- **Email:** paste the Resend API key and sender address on the **Settings** page (they are stored in the database). Env vars `RESEND_API_KEY` / `EMAIL_FROM` override them if set.
 
-**Never commit API keys.** Put them only in the Vercel / `.env.local` environment.
+Env vars still work for self-hosting elsewhere; see `.env.example`.
 
 ## Adding WhatsApp later
 

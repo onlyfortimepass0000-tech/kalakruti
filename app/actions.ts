@@ -3,19 +3,17 @@
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { checkPassword, createSessionToken, isValidSession, SESSION_COOKIE } from "@/lib/auth";
-import { config, TOTAL_STAGES } from "@/lib/config";
+import { login as doLogin, logout as doLogout, MAX_AGE_S, SESSION_COOKIE } from "@/lib/auth";
+import { TOTAL_STAGES } from "@/lib/config";
 import { isISODate } from "@/lib/dates";
 import { runDailyCheck, type RunSummary } from "@/lib/runner";
-import { getStore } from "@/lib/store";
+import { ownerStore } from "@/lib/session";
+import { emailSettings, SETTING_KEYS } from "@/lib/settings";
 
 export type ActionState = { error?: string; ok?: string } | undefined;
 
-// Server actions are public POST endpoints — each one checks the session.
-async function requireOwner() {
-  const token = (await cookies()).get(SESSION_COOKIE)?.value;
-  if (!isValidSession(token)) redirect("/login");
-}
+// Server actions are public POST endpoints — each one checks the session
+// via ownerStore(), which redirects to /login when it is invalid.
 
 function done() {
   revalidatePath("/");
@@ -37,20 +35,19 @@ function parseEntryForm(form: FormData) {
 }
 
 export async function addEntry(_prev: ActionState, form: FormData): Promise<ActionState> {
-  await requireOwner();
+  const store = await ownerStore();
   const parsed = parseEntryForm(form);
   if ("error" in parsed) return { error: parsed.error };
-  await getStore().createEntry(parsed.value);
+  await store.createEntry(parsed.value);
   done();
   return { ok: `Added ${parsed.value.customer_name}.` };
 }
 
 export async function editEntry(_prev: ActionState, form: FormData): Promise<ActionState> {
-  await requireOwner();
+  const store = await ownerStore();
   const id = String(form.get("id"));
   const parsed = parseEntryForm(form);
   if ("error" in parsed) return { error: parsed.error };
-  const store = getStore();
   const current = await store.getEntry(id);
   if (!current) return { error: "Entry not found." };
   if (current.status === "paid") return { error: "Paid entries can't be edited. Undo paid first." };
@@ -64,8 +61,8 @@ export async function editEntry(_prev: ActionState, form: FormData): Promise<Act
 }
 
 export async function markPaid(id: string) {
-  await requireOwner();
-  await getStore().updateEntry(
+  const store = await ownerStore();
+  await store.updateEntry(
     id,
     { status: "paid", paid_at: new Date().toISOString() },
     { status: ["active", "paused", "needs_attention"] },
@@ -74,8 +71,7 @@ export async function markPaid(id: string) {
 }
 
 export async function undoPaid(id: string) {
-  await requireOwner();
-  const store = getStore();
+  const store = await ownerStore();
   const e = await store.getEntry(id);
   if (!e || e.status !== "paid") return;
   const finished = e.stages_sent >= TOTAL_STAGES;
@@ -92,8 +88,7 @@ export async function undoPaid(id: string) {
 }
 
 export async function togglePause(id: string) {
-  await requireOwner();
-  const store = getStore();
+  const store = await ownerStore();
   const e = await store.getEntry(id);
   if (!e) return;
   if (e.status === "active") {
@@ -106,8 +101,8 @@ export async function togglePause(id: string) {
 
 /** After fixing a bad email address, put the entry back in the sequence. */
 export async function resumeAfterFailure(id: string) {
-  await requireOwner();
-  await getStore().updateEntry(
+  const store = await ownerStore();
+  await store.updateEntry(
     id,
     { status: "active", attention_reason: null, last_error: null },
     { status: ["needs_attention"] },
@@ -116,8 +111,7 @@ export async function resumeAfterFailure(id: string) {
 }
 
 export async function deleteEntry(id: string) {
-  await requireOwner();
-  const store = getStore();
+  const store = await ownerStore();
   // Entries with send history are kept as the record in case of disputes.
   if ((await store.listSends({ entryId: id, limit: 1 })).length > 0) return;
   await store.deleteEntry(id);
@@ -125,31 +119,53 @@ export async function deleteEntry(id: string) {
 }
 
 export async function runNow(_prev: unknown, form: FormData): Promise<{ summary?: RunSummary; error?: string }> {
-  await requireOwner();
+  const store = await ownerStore();
   const simulated = String(form.get("simulate_date") ?? "");
   if (simulated) {
-    if (config.emailMode !== "mock") return { error: "Date simulation is only available in mock (log-only) mode." };
+    if ((await emailSettings(store)).mode !== "mock") {
+      return { error: "Date simulation is only available in mock (log-only) mode." };
+    }
     if (!isISODate(simulated)) return { error: "Invalid simulated date." };
   }
-  const summary = await runDailyCheck(simulated ? { today: simulated } : {});
+  const summary = await runDailyCheck(simulated ? { today: simulated, store } : { store });
   done();
   return { summary };
 }
 
+export async function saveSettings(_prev: ActionState, form: FormData): Promise<ActionState> {
+  const store = await ownerStore();
+  const from = String(form.get("email_from") ?? "").trim();
+  if (from && !/@[^\s@]+\.[^\s@>]+>?$/.test(from)) {
+    return { error: 'Sender must look like "Name <billing@yourdomain.com>" or billing@yourdomain.com.' };
+  }
+  for (const key of SETTING_KEYS) {
+    const raw = form.get(key);
+    if (raw === null) continue;
+    const value = String(raw).trim();
+    // Leaving the API key box empty keeps the saved key; "clear" removes it.
+    if (key === "resend_api_key" && value === "") continue;
+    await store.setSetting(key, value === "clear" ? "" : value);
+  }
+  revalidatePath("/", "layout");
+  return { ok: "Settings saved." };
+}
+
 export async function login(_prev: ActionState, form: FormData): Promise<ActionState> {
-  if (!checkPassword(String(form.get("password") ?? ""))) return { error: "Wrong password." };
-  const { value, maxAge } = createSessionToken();
-  (await cookies()).set(SESSION_COOKIE, value, {
+  const token = await doLogin(String(form.get("password") ?? ""));
+  if (!token) return { error: "Wrong password." };
+  (await cookies()).set(SESSION_COOKIE, token, {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
-    maxAge,
+    maxAge: MAX_AGE_S,
     path: "/",
   });
   redirect("/");
 }
 
 export async function logout() {
-  (await cookies()).delete(SESSION_COOKIE);
+  const jar = await cookies();
+  await doLogout(jar.get(SESSION_COOKIE)?.value).catch(() => {});
+  jar.delete(SESSION_COOKIE);
   redirect("/login");
 }

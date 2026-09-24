@@ -13,7 +13,7 @@ export default function LoginPage() {
         </div>
         {mode === "misconfigured" ? (
           <p className="form-msg err">
-            ADMIN_PASSWORD is not set. Add it in your hosting environment variables, then redeploy.
+            Login is not configured.
           </p>
         ) : (
           <LoginForm />

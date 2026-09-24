@@ -27,4 +27,7 @@ export interface Store {
   updateSend(id: string, patch: Partial<Pick<SendLog, "status" | "provider_message_id" | "error">>): Promise<void>;
   listSends(opts?: { entryId?: string; limit?: number }): Promise<SendLog[]>;
   findSendByProviderId(providerMessageId: string): Promise<SendLog | null>;
+
+  getSettings(): Promise<Record<string, string>>;
+  setSetting(key: string, value: string): Promise<void>;
 }

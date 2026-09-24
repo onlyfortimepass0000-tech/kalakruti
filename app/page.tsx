@@ -1,6 +1,7 @@
 import { config } from "@/lib/config";
 import { formatMoney, todayIn } from "@/lib/dates";
-import { getStore } from "@/lib/store";
+import { ownerStore } from "@/lib/session";
+import { emailSettings } from "@/lib/settings";
 import { AddEntryForm } from "./components/AddEntryForm";
 import { EntryCard } from "./components/EntryCard";
 import { Header, SetupBanners } from "./components/Header";
@@ -11,9 +12,13 @@ import { toView, type EntryView } from "./components/view";
 export const dynamic = "force-dynamic";
 
 export default async function Dashboard() {
-  const store = getStore();
+  const store = await ownerStore();
   const today = todayIn(config.timezone);
-  const [entries, sends] = await Promise.all([store.listEntries(), store.listSends({ limit: 5000 })]);
+  const [entries, sends, email] = await Promise.all([
+    store.listEntries(),
+    store.listSends({ limit: 5000 }),
+    emailSettings(store),
+  ]);
   const withSends = new Set(sends.map((s) => s.entry_id));
   const views = entries.map((e) => toView(e, today, withSends.has(e.id)));
 
@@ -30,8 +35,8 @@ export default async function Dashboard() {
   return (
     <ToastProvider>
       <main className="wrap">
-        <Header />
-        <SetupBanners />
+        <Header mode={email.mode} />
+        <SetupBanners email={email} />
 
         <div className="stats">
           <a href="#attention" className={`stat ${attention.length ? "alert" : ""}`}>
@@ -139,7 +144,7 @@ export default async function Dashboard() {
           <div className="section-head">
             <h2 className="section-title">Daily check</h2>
           </div>
-          <RunPanel mock={config.emailMode === "mock"} today={today} />
+          <RunPanel mock={email.mode === "mock"} today={today} />
         </section>
       </main>
     </ToastProvider>

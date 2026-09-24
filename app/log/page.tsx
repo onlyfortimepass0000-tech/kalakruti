@@ -1,7 +1,8 @@
 import { config } from "@/lib/config";
 import { formatDate } from "@/lib/dates";
 import { STAGE_LABELS } from "@/lib/schedule";
-import { getStore } from "@/lib/store";
+import { ownerStore } from "@/lib/session";
+import { emailSettings } from "@/lib/settings";
 import { Header } from "../components/Header";
 
 export const dynamic = "force-dynamic";
@@ -9,15 +10,19 @@ export const dynamic = "force-dynamic";
 const STATUS_TEXT = { sent: "Sent", failed: "Failed", bounced: "Bounced", sending: "Sending / unconfirmed" };
 
 export default async function LogPage() {
-  const store = getStore();
-  const [sends, entries] = await Promise.all([store.listSends({ limit: 1000 }), store.listEntries()]);
+  const store = await ownerStore();
+  const [sends, entries, email] = await Promise.all([
+    store.listSends({ limit: 1000 }),
+    store.listEntries(),
+    emailSettings(store),
+  ]);
   const names = new Map(entries.map((e) => [e.id, e.customer_name]));
   const failures = sends.filter((s) => s.status === "failed" || s.status === "bounced").length;
   const fmt = new Intl.DateTimeFormat("en-IN", { timeZone: config.timezone, dateStyle: "medium", timeStyle: "short" });
 
   return (
     <main className="wrap">
-      <Header />
+      <Header mode={email.mode} />
       <div className="section-head">
         <h2 className="section-title">
           Send log <span className="count">{sends.length} most recent</span>

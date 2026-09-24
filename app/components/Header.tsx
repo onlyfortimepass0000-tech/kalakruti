@@ -1,22 +1,30 @@
 import Link from "next/link";
 import { logout } from "../actions";
 import { authMode } from "@/lib/auth";
-import { config } from "@/lib/config";
+import type { EmailSettings } from "@/lib/settings";
+import { usingSupabase } from "@/lib/store";
 
-export function Header() {
-  const live = config.emailMode === "live";
+export function Header({ mode }: { mode: EmailSettings["mode"] }) {
+  const live = mode === "live";
+  const canLogout = authMode() === "remote" || authMode() === "password";
   return (
     <header className="top">
       <Link href="/" className="brand">
         <span className="brand-mark">₹</span> Payment Reminders
       </Link>
       <div className="top-right">
-        <span className={`pill dot ${live ? "live" : "mock"}`} title={live ? "Emails go out via Resend" : "Log-only: no real emails are sent"}>
+        <Link
+          href="/settings"
+          className={`pill dot ${live ? "live" : "mock"}`}
+          title={live ? "Emails go out via Resend" : "Log-only: no real emails are sent"}
+          style={{ textDecoration: "none" }}
+        >
           {live ? "Live email" : "Mock mode"}
-        </span>
+        </Link>
         <Link href="/" className="nav-link">Dashboard</Link>
         <Link href="/log" className="nav-link">Send log</Link>
-        {authMode() === "password" && (
+        <Link href="/settings" className="nav-link">Settings</Link>
+        {canLogout && (
           <form action={logout}>
             <button className="btn btn-ghost">Sign out</button>
           </form>
@@ -26,16 +34,24 @@ export function Header() {
   );
 }
 
-export function SetupBanners() {
-  const notes: string[] = [];
+export function SetupBanners({ email }: { email: EmailSettings }) {
+  const notes: React.ReactNode[] = [];
   if (authMode() === "open") notes.push("No ADMIN_PASSWORD set — the dashboard is open. Fine locally; set one before deploying.");
-  if (!process.env.SUPABASE_URL) notes.push("Using the local demo data file. Set SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY for real storage.");
-  if (config.emailMode === "mock") notes.push("Mock mode: reminders are logged but not emailed. Set RESEND_API_KEY + EMAIL_FROM to go live.");
+  if (!usingSupabase()) notes.push("Using the local demo data file (no Supabase configured).");
+  if (email.mode === "mock") {
+    notes.push(
+      <>
+        Mock mode: reminders are logged but <b>not emailed</b>.{" "}
+        {!email.apiKey ? "Add your Resend API key" : "Add your verified sender address"} in{" "}
+        <Link href="/settings">Settings</Link> to go live.
+      </>,
+    );
+  }
   if (!notes.length) return null;
   return (
     <div className="banner">
-      {notes.map((n) => (
-        <div key={n}>{n}</div>
+      {notes.map((n, i) => (
+        <div key={i}>{n}</div>
       ))}
     </div>
   );
