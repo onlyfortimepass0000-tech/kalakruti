@@ -11,6 +11,7 @@ import type { EntryPatch, Guard, Store } from "./types";
 interface DB {
   entries: Entry[];
   sends: SendLog[];
+  settings?: Record<string, string>;
 }
 
 const LIVE = new Set(["sending", "sent"]);
@@ -135,5 +136,17 @@ export class LocalStore implements Store {
 
   findSendByProviderId(providerMessageId: string) {
     return this.tx((db) => db.sends.find((s) => s.provider_message_id === providerMessageId) ?? null);
+  }
+
+  getSettings() {
+    return this.tx((db) => ({ ...(db.settings ?? {}) }));
+  }
+
+  setSetting(key: string, value: string) {
+    return this.tx((db) => {
+      db.settings ??= {};
+      if (value) db.settings[key] = value;
+      else delete db.settings[key];
+    }, true);
   }
 }

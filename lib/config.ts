@@ -1,6 +1,7 @@
 /**
- * All tunables live here and read from env vars, so the schedule can be
- * adjusted in the hosting dashboard without a code change.
+ * Tunables read from env vars so the schedule can be adjusted without a code
+ * change. Email/business settings can also be edited from the Settings page
+ * (stored in the database); env vars win when both are set.
  */
 
 function intEnv(name: string, fallback: number): number {
@@ -9,6 +10,16 @@ function intEnv(name: string, fallback: number): number {
   const n = Number.parseInt(raw, 10);
   return Number.isFinite(n) ? n : fallback;
 }
+
+/**
+ * The production Supabase project. The URL and publishable key are public by
+ * design — every request additionally needs a login/scheduler token, which
+ * row-level security checks (see supabase/migrations).
+ */
+const HOSTED_SUPABASE = {
+  url: "https://vkagsqzevqqqbfbdsfsf.supabase.co",
+  key: "sb_publishable_vUv92gu7Y6RYEjmif7Nthw_10vckrqd",
+};
 
 export const config = {
   /** Days before the due date that reminder #1 goes out. */
@@ -22,28 +33,12 @@ export const config = {
   get currency() {
     return process.env.CURRENCY || "INR";
   },
-  get businessName() {
-    return process.env.BUSINESS_NAME || "Our team";
-  },
-  /** "Name <billing@yourdomain.com>" — must be on a Resend-verified domain. */
-  get emailFrom() {
-    return process.env.EMAIL_FROM || "";
-  },
-  get replyTo() {
-    return process.env.EMAIL_REPLY_TO || "";
-  },
-  get resendApiKey() {
-    return process.env.RESEND_API_KEY || "";
-  },
-  /**
-   * "live" sends through Resend. Anything else uses the log-only mock sender.
-   * Defaults to mock unless both a key and a from address are configured.
-   */
-  get emailMode(): "live" | "mock" {
-    const mode = process.env.EMAIL_MODE;
-    if (mode === "mock") return "mock";
-    if (mode === "live") return "live";
-    return this.resendApiKey && this.emailFrom ? "live" : "mock";
+  /** Supabase connection; on Vercel it defaults to the hosted project. */
+  get supabase(): { url: string; key: string } | null {
+    const url = process.env.SUPABASE_URL || (process.env.VERCEL ? HOSTED_SUPABASE.url : "");
+    const key =
+      process.env.SUPABASE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || (process.env.VERCEL ? HOSTED_SUPABASE.key : "");
+    return url && key ? { url, key } : null;
   },
 };
 

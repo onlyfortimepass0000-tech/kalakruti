@@ -1,10 +1,11 @@
 import { config } from "../config";
 import { daysBetween, formatDate, formatMoney } from "../dates";
+import type { EmailSettings } from "../settings";
 import type { Entry, ISODate } from "../types";
 import type { SendResult } from "./index";
 
 /** Same polite tone for all 4 stages; only the date phrasing changes. */
-export function renderEmail(entry: Entry, today: ISODate) {
+export function renderEmail(entry: Entry, today: ISODate, businessName: string) {
   const amount = formatMoney(entry.amount, config.currency);
   const due = formatDate(entry.due_date);
   const diff = daysBetween(today, entry.due_date);
@@ -13,7 +14,7 @@ export function renderEmail(entry: Entry, today: ISODate) {
     diff === 1 ? `is due tomorrow, ${due}` :
     diff === 0 ? `is due today, ${due}` :
     `was due on ${due}`;
-  const biz = config.businessName;
+  const biz = businessName;
 
   const subject = diff >= 0 ? `Payment reminder: ${amount} due ${due}` : `Payment reminder: ${amount} was due ${due}`;
   const text = [
@@ -45,10 +46,16 @@ function isPermanent(status: number, name?: string) {
   return status === 422 || status === 400;
 }
 
-export async function sendEmail(entry: Entry, stage: number, today: ISODate, idempotencyKey: string): Promise<SendResult> {
-  const msg = renderEmail(entry, today);
+export async function sendEmail(
+  entry: Entry,
+  stage: number,
+  today: ISODate,
+  idempotencyKey: string,
+  settings: EmailSettings,
+): Promise<SendResult> {
+  const msg = renderEmail(entry, today, settings.businessName);
 
-  if (config.emailMode === "mock") {
+  if (settings.mode === "mock") {
     console.log(`[mock-email] stage ${stage} → ${entry.email}: ${msg.subject}`);
     return { ok: true, providerMessageId: `mock_${idempotencyKey}` };
   }
@@ -58,17 +65,17 @@ export async function sendEmail(entry: Entry, stage: number, today: ISODate, ide
     res = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${config.resendApiKey}`,
+        Authorization: `Bearer ${settings.apiKey}`,
         "Content-Type": "application/json",
         "Idempotency-Key": idempotencyKey,
       },
       body: JSON.stringify({
-        from: config.emailFrom,
+        from: settings.from,
         to: [entry.email],
         subject: msg.subject,
         text: msg.text,
         html: msg.html,
-        ...(config.replyTo ? { reply_to: config.replyTo } : {}),
+        ...(settings.replyTo ? { reply_to: settings.replyTo } : {}),
         tags: [{ name: "stage", value: String(stage) }],
       }),
     });

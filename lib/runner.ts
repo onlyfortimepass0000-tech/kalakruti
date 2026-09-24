@@ -7,6 +7,7 @@ import { ACTIVE_CHANNEL, sendReminder } from "./channels";
 import { config, TOTAL_STAGES } from "./config";
 import { todayIn } from "./dates";
 import { decide } from "./schedule";
+import { emailSettings, type EmailSettings } from "./settings";
 import { getStore, type Store } from "./store";
 import type { Entry, ISODate } from "./types";
 
@@ -28,6 +29,7 @@ export interface RunSummary {
 export async function runDailyCheck(opts: { today?: ISODate; store?: Store } = {}): Promise<RunSummary> {
   const store = opts.store ?? getStore();
   const today = opts.today ?? todayIn(config.timezone);
+  const email = await emailSettings(store);
   const leadDays = config.leadDays;
   const active = (await store.listEntries()).filter((e) => e.status === "active");
   const outcomes: RunOutcome[] = [];
@@ -39,7 +41,7 @@ export async function runDailyCheck(opts: { today?: ISODate; store?: Store } = {
         await flag(store, entry.id, "sequence_complete");
         outcomes.push({ entryId: entry.id, customer: entry.customer_name, action: "flagged" });
       } else if (d.kind === "send") {
-        outcomes.push(await sendStage(store, entry, d.stage, today));
+        outcomes.push(await sendStage(store, entry, d.stage, today, email));
       }
     } catch (err) {
       // One bad entry must never stop the rest of the run.
@@ -52,7 +54,7 @@ export async function runDailyCheck(opts: { today?: ISODate; store?: Store } = {
     }
   }
 
-  return { today, mode: config.emailMode, checked: active.length, outcomes };
+  return { today, mode: email.mode, checked: active.length, outcomes };
 }
 
 function flag(store: Store, id: string, reason: "sequence_complete" | "send_failed", error?: string) {
@@ -63,7 +65,13 @@ function flag(store: Store, id: string, reason: "sequence_complete" | "send_fail
   );
 }
 
-async function sendStage(store: Store, entry: Entry, stage: number, today: ISODate): Promise<RunOutcome> {
+async function sendStage(
+  store: Store,
+  entry: Entry,
+  stage: number,
+  today: ISODate,
+  email: EmailSettings,
+): Promise<RunOutcome> {
   const base = { entryId: entry.id, customer: entry.customer_name, stage };
 
   // Re-read right before sending so a Paid/Pause click moments ago wins.
@@ -78,6 +86,7 @@ async function sendStage(store: Store, entry: Entry, stage: number, today: ISODa
   const result = await sendReminder(fresh, stage, {
     today,
     idempotencyKey: `reminder-${fresh.id}-stage-${stage}-${claim.id}`,
+    email,
   });
 
   if (result.ok) {
