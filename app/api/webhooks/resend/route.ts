@@ -1,18 +1,29 @@
 /**
- * Resend delivery webhooks. Bounces happen after Resend has accepted the
- * email, so this is how a bounced address reaches the log and the dashboard.
- * Configure in Resend → Webhooks: URL = <app>/api/webhooks/resend, events
- * email.bounced (+ email.complained), and put the signing secret in
- * RESEND_WEBHOOK_SECRET.
+ * Resend delivery webhooks. Bounces happen after Resend has accepted an email,
+ * so this is how a bounced address reaches the log and the dashboard.
+ *
+ * On Supabase the signature is verified and the bounce recorded inside the
+ * database (pr_handle_resend_webhook) using the secret saved on the Settings
+ * page, so no hosting env vars are needed. Local demo mode keeps a small
+ * in-process version that reads RESEND_WEBHOOK_SECRET.
  */
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
-import { getStore } from "@/lib/store";
+import { getStore, getSupabase } from "@/lib/store";
 
 export const dynamic = "force-dynamic";
 
+const HTTP: Record<string, number> = {
+  recorded: 200,
+  ignored: 200,
+  no_match: 200,
+  not_configured: 503,
+  bad_signature: 401,
+  bad_request: 400,
+};
+
 /** Svix signature check (the scheme Resend webhooks use). */
-function verify(body: string, headers: Headers, secret: string) {
+function verifyLocal(body: string, headers: Headers, secret: string) {
   const id = headers.get("svix-id");
   const ts = headers.get("svix-timestamp");
   const sigs = headers.get("svix-signature");
@@ -27,17 +38,26 @@ function verify(body: string, headers: Headers, secret: string) {
 }
 
 export async function POST(req: NextRequest) {
-  const secret = process.env.RESEND_WEBHOOK_SECRET;
-  if (!secret) return NextResponse.json({ error: "webhook not configured" }, { status: 503 });
   const body = await req.text();
-  if (!verify(body, req.headers, secret)) return NextResponse.json({ error: "bad signature" }, { status: 401 });
+
+  const sb = getSupabase();
+  if (sb) {
+    const h = req.headers;
+    const result = await sb.handleResendWebhook(body, h.get("svix-id"), h.get("svix-timestamp"), h.get("svix-signature"));
+    return NextResponse.json({ result }, { status: HTTP[result] ?? 500 });
+  }
+
+  const secret = process.env.RESEND_WEBHOOK_SECRET;
+  if (!secret) return NextResponse.json({ result: "not_configured" }, { status: 503 });
+  if (!verifyLocal(body, req.headers, secret)) return NextResponse.json({ result: "bad_signature" }, { status: 401 });
 
   const event = JSON.parse(body) as { type: string; data?: { email_id?: string; bounce?: { message?: string } } };
-  if (event.type !== "email.bounced" && event.type !== "email.complained") return NextResponse.json({ ok: true });
-
+  if (event.type !== "email.bounced" && event.type !== "email.complained") {
+    return NextResponse.json({ result: "ignored" });
+  }
   const store = getStore();
   const log = event.data?.email_id ? await store.findSendByProviderId(event.data.email_id) : null;
-  if (!log) return NextResponse.json({ ok: true, matched: false });
+  if (!log) return NextResponse.json({ result: "no_match" });
 
   const reason =
     event.type === "email.bounced"
@@ -49,5 +69,5 @@ export async function POST(req: NextRequest) {
     { status: "needs_attention", attention_reason: "send_failed", last_error: reason },
     { status: ["active", "needs_attention"] },
   );
-  return NextResponse.json({ ok: true, matched: true });
+  return NextResponse.json({ result: "recorded" });
 }

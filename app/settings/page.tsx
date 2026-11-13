@@ -1,13 +1,17 @@
 import { ownerStore } from "@/lib/session";
 import { emailSettings } from "@/lib/settings";
 import { Header } from "../components/Header";
+import { headers } from "next/headers";
 import { SettingsForm } from "./SettingsForm";
+import { WebhookPanel } from "./WebhookPanel";
 
 export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {
   const store = await ownerStore();
   const email = await emailSettings(store);
+  const host = (await headers()).get("host") ?? "";
+  const webhookUrl = `${host.startsWith("localhost") ? "http" : "https"}://${host}/api/webhooks/resend`;
   const keyHint =
     email.source.apiKey === "env"
       ? "Set in hosting environment (RESEND_API_KEY) — that value is used."
@@ -31,6 +35,7 @@ export default async function SettingsPage() {
         businessName={email.businessName === "Our team" ? "" : email.businessName}
         fromLocked={email.source.from === "env"}
       />
+      <WebhookPanel connected={email.webhookConnected} url={webhookUrl} />
       <div className="panel" style={{ marginTop: 16, fontSize: 14, color: "var(--ink-2)" }}>
         <b style={{ color: "var(--ink)" }}>About the sender address.</b> Resend only delivers to your customers from a
         domain you have verified in Resend (Domains → Add domain, then add the DNS records it shows). Until then you
