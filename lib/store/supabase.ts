@@ -108,6 +108,18 @@ export class SupabaseStore implements Store {
     if (error) fail("setSetting", error);
   }
 
+  /** Verifies a Resend webhook and records bounces — all inside the database. */
+  async handleResendWebhook(body: string, svixId: string | null, svixTs: string | null, svixSig: string | null) {
+    const { data, error } = await this.db.rpc("pr_handle_resend_webhook", {
+      p_body: body,
+      p_svix_id: svixId,
+      p_svix_ts: svixTs,
+      p_svix_sig: svixSig,
+    });
+    if (error) fail("handleResendWebhook", error);
+    return data as string;
+  }
+
   // ── Auth (password + tokens live in the database) ──────────────────────
   async login(password: string): Promise<string | null> {
     const { data, error } = await this.db.rpc("pr_login", { p_password: password });

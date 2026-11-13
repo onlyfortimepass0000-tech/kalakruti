@@ -1,6 +1,6 @@
 "use server";
 
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { login as doLogin, logout as doLogout, MAX_AGE_S, SESSION_COOKIE } from "@/lib/auth";
@@ -8,7 +8,8 @@ import { TOTAL_STAGES } from "@/lib/config";
 import { isISODate } from "@/lib/dates";
 import { runDailyCheck, type RunSummary } from "@/lib/runner";
 import { ownerStore } from "@/lib/session";
-import { emailSettings, SETTING_KEYS } from "@/lib/settings";
+import { emailSettings, SECRET_KEYS, SETTING_KEYS } from "@/lib/settings";
+import { connectBounceTracking } from "@/lib/webhook";
 
 export type ActionState = { error?: string; ok?: string } | undefined;
 
@@ -142,12 +143,22 @@ export async function saveSettings(_prev: ActionState, form: FormData): Promise<
     const raw = form.get(key);
     if (raw === null) continue;
     const value = String(raw).trim();
-    // Leaving the API key box empty keeps the saved key; "clear" removes it.
-    if (key === "resend_api_key" && value === "") continue;
+    // Leaving a secret box empty keeps the saved one; "clear" removes it.
+    if (SECRET_KEYS.includes(key) && value === "") continue;
     await store.setSetting(key, value === "clear" ? "" : value);
   }
   revalidatePath("/", "layout");
   return { ok: "Settings saved." };
+}
+
+export async function connectBounceTrackingAction(): Promise<ActionState> {
+  const store = await ownerStore();
+  const host = (await headers()).get("host");
+  if (!host) return { error: "Could not work out this site's address." };
+  const proto = host.startsWith("localhost") ? "http" : "https";
+  const r = await connectBounceTracking(store, `${proto}://${host}`);
+  revalidatePath("/settings");
+  return r.ok ? { ok: r.detail } : { error: r.error };
 }
 
 export async function login(_prev: ActionState, form: FormData): Promise<ActionState> {
