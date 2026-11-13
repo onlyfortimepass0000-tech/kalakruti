@@ -7,6 +7,6 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // Cron, webhook and health routes authenticate (or expose nothing) themselves.
-  matcher: ["/((?!login|api/cron|api/webhooks|api/health|_next/static|_next/image|favicon.ico|icon.svg).*)"],
+  // Cron, webhook, admin and health routes authenticate (or expose nothing) themselves.
+  matcher: ["/((?!login|api/cron|api/webhooks|api/health|api/admin|_next/static|_next/image|favicon.ico|icon.svg).*)"],
 };
