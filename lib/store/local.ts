@@ -70,6 +70,8 @@ export class LocalStore implements Store {
         last_error: null,
         paid_at: null,
         paused_at: null,
+        replied_at: null,
+        reply_note: null,
         created_at: now,
         updated_at: now,
       };

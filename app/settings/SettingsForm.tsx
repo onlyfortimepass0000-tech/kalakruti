@@ -34,8 +34,8 @@ export function SettingsForm(props: {
           />
         </div>
         <div className="field">
-          <label htmlFor="s-reply">Replies go to (optional)</label>
-          <input id="s-reply" name="email_reply_to" type="email" defaultValue={props.replyTo} placeholder="you@gmail.com" />
+          <label htmlFor="s-reply">Replies go to (optional — separate several with commas)</label>
+          <input id="s-reply" name="email_reply_to" type="text" defaultValue={props.replyTo} placeholder="you@gmail.com" />
         </div>
         <button className="btn btn-primary" disabled={pending} style={{ justifyContent: "center" }}>
           {pending ? "Saving…" : "Save settings"}

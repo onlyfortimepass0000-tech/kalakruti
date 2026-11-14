@@ -54,6 +54,8 @@ export async function sendEmail(
   settings: EmailSettings,
 ): Promise<SendResult> {
   const msg = renderEmail(entry, today, settings.businessName);
+  // Several reply addresses can be listed, separated by commas.
+  const replyTo = settings.replyTo.split(",").map((a) => a.trim()).filter(Boolean);
 
   if (settings.mode === "mock") {
     console.log(`[mock-email] stage ${stage} → ${entry.email}: ${msg.subject}`);
@@ -75,7 +77,7 @@ export async function sendEmail(
         subject: msg.subject,
         text: msg.text,
         html: msg.html,
-        ...(settings.replyTo ? { reply_to: settings.replyTo } : {}),
+        ...(replyTo.length ? { reply_to: replyTo } : {}),
         tags: [{ name: "stage", value: String(stage) }],
       }),
     });

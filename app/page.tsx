@@ -31,12 +31,20 @@ export default async function Dashboard() {
 
   const sum = (list: EntryView[]) => formatMoney(list.reduce((t, e) => t + e.amount, 0), config.currency);
   const outstanding = [...attention, ...active, ...paused];
+  const replied = outstanding.filter((e) => e.replied_at);
 
   return (
     <ToastProvider>
       <main className="wrap">
         <Header mode={email.mode} />
         <SetupBanners email={email} />
+
+        {replied.length > 0 && (
+          <div className="reply-banner" role="status">
+            💬 {replied.length === 1 ? "1 customer has" : `${replied.length} customers have`} replied:{" "}
+            {replied.map((e) => e.customer_name).join(", ")}
+          </div>
+        )}
 
         <div className="stats">
           <a href="#attention" className={`stat ${attention.length ? "alert" : ""}`}>

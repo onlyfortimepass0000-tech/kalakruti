@@ -111,6 +111,12 @@ export async function resumeAfterFailure(id: string) {
   done();
 }
 
+export async function setReplied(id: string, replied: boolean) {
+  const store = await ownerStore();
+  await store.updateEntry(id, replied ? { replied_at: new Date().toISOString(), reply_note: "Marked by hand" } : { replied_at: null, reply_note: null });
+  done();
+}
+
 export async function deleteEntry(id: string) {
   const store = await ownerStore();
   // Entries with send history are kept as the record in case of disputes.
@@ -138,6 +144,10 @@ export async function saveSettings(_prev: ActionState, form: FormData): Promise<
   const from = String(form.get("email_from") ?? "").trim();
   if (from && !/@[^\s@]+\.[^\s@>]+>?$/.test(from)) {
     return { error: 'Sender must look like "Name <billing@yourdomain.com>" or billing@yourdomain.com.' };
+  }
+  const replyTo = String(form.get("email_reply_to") ?? "").trim();
+  if (replyTo && !replyTo.split(",").every((a) => EMAIL_RE.test(a.trim()))) {
+    return { error: "Replies go to: enter valid email addresses, separated by commas." };
   }
   for (const key of SETTING_KEYS) {
     const raw = form.get(key);
