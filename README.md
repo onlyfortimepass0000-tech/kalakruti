@@ -44,6 +44,10 @@ With no env vars set, data goes to `.data/db.json` and emails are only logged (m
 
 Env vars still work for self-hosting elsewhere; see `.env.example`.
 
+## Customer replies
+
+Reminders carry a Reply-To (Settings → "Replies go to"; several addresses can be comma-separated). A customer's reply flags their entry with a **💬 Replied** badge and a dashboard banner. Detection uses Resend's `email.received` webhook event (matches the sender to an entry); you can also flag by hand from a customer's Edit panel, and tap **Handled** to clear it. Setup steps are on the Settings page.
+
 ## Adding WhatsApp later
 
 All sending goes through `sendReminder(entry, stage)` in `lib/channels/index.ts`. To add WhatsApp:

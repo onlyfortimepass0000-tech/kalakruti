@@ -51,11 +51,19 @@ export async function POST(req: NextRequest) {
   if (!secret) return NextResponse.json({ result: "not_configured" }, { status: 503 });
   if (!verifyLocal(body, req.headers, secret)) return NextResponse.json({ result: "bad_signature" }, { status: 401 });
 
-  const event = JSON.parse(body) as { type: string; data?: { email_id?: string; bounce?: { message?: string } } };
+  const event = JSON.parse(body) as { type: string; data?: { email_id?: string; bounce?: { message?: string }; from?: string; subject?: string } };
+  const store = getStore();
+  if (event.type === "email.received") {
+    const raw = String((event.data as { from?: string } | undefined)?.from ?? "");
+    const from = (/<([^>]+)>/.exec(raw)?.[1] ?? raw).trim().toLowerCase();
+    const subject = String((event.data as { subject?: string } | undefined)?.subject ?? "").slice(0, 200);
+    const matches = (await store.listEntries()).filter((e) => e.email.toLowerCase() === from && e.status !== "paid");
+    for (const e of matches) await store.updateEntry(e.id, { replied_at: new Date().toISOString(), reply_note: subject });
+    return NextResponse.json({ result: matches.length ? "recorded" : "no_match" });
+  }
   if (event.type !== "email.bounced" && event.type !== "email.complained") {
     return NextResponse.json({ result: "ignored" });
   }
-  const store = getStore();
   const log = event.data?.email_id ? await store.findSendByProviderId(event.data.email_id) : null;
   if (!log) return NextResponse.json({ result: "no_match" });
 

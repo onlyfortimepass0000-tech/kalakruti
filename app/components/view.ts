@@ -9,6 +9,7 @@ export interface EntryView extends Entry {
   dueRelative: string;
   nextLabel: string | null;
   paidLabel: string | null;
+  repliedLabel: string | null;
   hasSends: boolean;
 }
 
@@ -35,6 +36,7 @@ export function toView(e: Entry, today: ISODate, hasSends: boolean): EntryView {
     dueRelative: relative(e.due_date, today),
     nextLabel,
     paidLabel: e.paid_at ? formatDate(todayIn(config.timezone, new Date(e.paid_at))) : null,
+    repliedLabel: e.replied_at ? formatDate(todayIn(config.timezone, new Date(e.replied_at))) : null,
     hasSends,
   };
 }

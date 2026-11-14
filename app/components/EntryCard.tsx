@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useRef, useTransition } from "react";
-import { deleteEntry, editEntry, markPaid, resumeAfterFailure, togglePause, undoPaid } from "../actions";
+import { deleteEntry, editEntry, markPaid, resumeAfterFailure, setReplied, togglePause, undoPaid } from "../actions";
 import { useToast } from "./Toast";
 import type { EntryView } from "./view";
 
@@ -46,6 +46,7 @@ export function EntryCard({ e }: { e: EntryView }) {
             <span className="pill alert">{e.attention_reason === "send_failed" ? "Email failed" : "All 4 sent · unpaid"}</span>
           )}
           {e.status === "paused" && <span className="pill">Paused</span>}
+          {e.replied_at && <span className="pill info">💬 Replied</span>}
         </div>
         <div className="who-email">{e.email}</div>
         <div className="facts">
@@ -90,6 +91,18 @@ export function EntryCard({ e }: { e: EntryView }) {
         </button>
       </div>
 
+      {e.replied_at && (
+        <div className="reply-line">
+          <span>
+            💬 Replied {e.repliedLabel}
+            {e.reply_note ? ` — “${e.reply_note}”` : ""}. Check your reply inbox, then mark it handled.
+          </span>
+          <button className="btn" disabled={pending} onClick={() => start(() => setReplied(e.id, false))}>
+            Handled
+          </button>
+        </div>
+      )}
+
       {e.last_error && <div className="error-line">⚠ Last send failed: {e.last_error}</div>}
     </div>
   );
@@ -111,6 +124,19 @@ function MoreMenu({ e }: { e: EntryView }) {
             ✕ Close
           </button>
         </div>
+        {!e.replied_at && (
+          <button
+            type="button"
+            className="btn"
+            style={{ marginBottom: 10 }}
+            onClick={() => {
+              details.current?.removeAttribute("open");
+              void setReplied(e.id, true);
+            }}
+          >
+            💬 Mark as replied
+          </button>
+        )}
         <form action={action} className="form-grid stack">
           <input type="hidden" name="id" value={e.id} />
           <div className="field">

@@ -21,6 +21,10 @@ export interface Entry {
   last_error: string | null;
   paid_at: string | null;
   paused_at: string | null;
+  /** When the customer last replied to a reminder (null = no reply). */
+  replied_at: string | null;
+  /** Subject line of that reply. */
+  reply_note: string | null;
   created_at: string;
   updated_at: string;
 }

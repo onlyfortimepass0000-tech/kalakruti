@@ -347,3 +347,18 @@ details.fold[open] > summary .chev { transform: rotate(90deg); }
 @media (max-width: 360px) {
   .switch-label { display: none; }
 }
+
+/* Customer replies */
+.pill.info { background: var(--info-bg); color: var(--info); }
+.reply-line {
+  grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  font-size: 13px; color: var(--info); background: var(--info-bg);
+  border: 1px solid color-mix(in srgb, var(--info) 25%, transparent); border-radius: 8px; padding: 8px 10px;
+}
+.reply-line span { overflow-wrap: anywhere; }
+.reply-banner {
+  display: flex; gap: 10px; align-items: center; margin: 0 0 16px; padding: 12px 14px; border-radius: 12px;
+  background: var(--info-bg); color: var(--info); border: 1px solid color-mix(in srgb, var(--info) 30%, transparent);
+  font-size: 14px; font-weight: 600;
+}
+@media (max-width: 700px) { .reply-line { flex-direction: column; align-items: stretch; } }
